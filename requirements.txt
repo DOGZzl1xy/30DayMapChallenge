@@ -1,0 +1,20 @@
+# Core geo stack
+geopandas>=1.2
+shapely>=2.2
+pyproj>=3.8
+pandas>=3.0
+numpy>=2.5
+rasterio>=1.5
+
+# Plotting
+matplotlib>=3.11
+mapclassify
+contextily
+pillow>=12
+
+# Data access
+requests
+osmnx
+
+# Interactive / web maps
+folium

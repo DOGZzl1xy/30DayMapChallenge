@@ -1,0 +1,7 @@
+* text=auto
+*.png binary
+*.jpg binary
+*.gif binary
+*.tif binary
+*.gpkg binary
+*.parquet binary
