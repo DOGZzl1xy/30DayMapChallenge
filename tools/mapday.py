@@ -5,12 +5,16 @@
     python tools/mapday.py submit 13 --dry-run    # preview gallery entry + thumbnail in cache/preview/
     python tools/mapday.py submit 13              # write them into the MUSA fork on branch day13-xuanyu and commit
 
-`submit` reads scripts/dayNN_*/entry.md (title, image, thumbnail crop, gallery text),
-then writes three files into the fork of weitzman-musa/30DayMapChallenge:
+`submit` reads scripts/dayNN_*/entry.md (title, images, thumbnail crop, gallery text),
+then writes these files into the fork of weitzman-musa/30DayMapChallenge:
 
     _maps_2026/NN-xuanyu.md
-    assets/thumbnails/2026/NN-xuanyu.png       square 600x600 gallery thumbnail
-    assets/thumbnails/2026/NN-xuanyu-map.png   web-sized full map shown on the entry page
+    assets/thumbnails/2026/NN-xuanyu.png        square 600x600 gallery thumbnail
+    assets/thumbnails/2026/NN-xuanyu-map.png    web-sized `image`, shown via ](MAP) in the text
+    assets/thumbnails/2026/NN-xuanyu-map2.png   optional `extra` images, ](MAP2), ](MAP3) ...
+
+entry.md front matter keys: title, image, thumb_image (defaults to image), thumb_focus,
+thumb_zoom, extra (comma-separated paths; GIFs are copied as they are).
 
 Pushing the branch and opening the PR are left as separate, deliberate steps.
 """
@@ -116,6 +120,8 @@ title: "TODO map title"
 image: outputs/__SLUG__.png
 thumb_focus: 0.5,0.5   # centre of the square thumbnail, as fractions of width,height
 thumb_zoom: 1.0        # 1 = largest square that fits; 2 = zoom in 2x
+# thumb_image: outputs/other.png   # crop the thumbnail from a different image
+# extra: outputs/a.png, outputs/b.gif   # more images, used in the text as ](MAP2), ](MAP3)
 ---
 **Day __DAY__ (__THEME__)**: TODO short description of the map.
 
@@ -221,25 +227,35 @@ def cmd_submit(args: argparse.Namespace) -> None:
     title = meta.get("title", "")
     if not title or "TODO" in title or "TODO" in body:
         die(f"fill in the TODOs in {folder.relative_to(ROOT)}/entry.md first")
-    image_path = ROOT / meta.get("image", f"outputs/{slug}.png")
-    if not image_path.exists():
-        die(f"map image not found: {image_path.relative_to(ROOT)}")
+    images = [meta.get("image", f"outputs/{slug}.png")]
+    images += [p.strip() for p in meta.get("extra", "").split(",") if p.strip()]
+    image_paths = [ROOT / p for p in images]
+    thumb_src = ROOT / meta.get("thumb_image", images[0])
+    for path in image_paths + [thumb_src]:
+        if not path.exists():
+            die(f"image not found: {path.relative_to(ROOT)}")
     focus = tuple(float(v) for v in meta.get("thumb_focus", "0.5,0.5").split(","))
     zoom = float(meta.get("thumb_zoom", "1.0"))
 
     stem = f"{day:02d}-{NAME}"
     thumb_rel = f"assets/thumbnails/{YEAR}/{stem}.png"
-    full_ext = ".gif" if image_path.suffix.lower() == ".gif" else ".png"
-    full_rel = f"assets/thumbnails/{YEAR}/{stem}-map{full_ext}"
+    full_rels = []
+    for k, path in enumerate(image_paths):
+        ext = ".gif" if path.suffix.lower() == ".gif" else ".png"
+        full_rels.append(f"assets/thumbnails/{YEAR}/{stem}-map{k + 1 if k else ''}{ext}")
     entry_rel = f"_maps_{YEAR}/{stem}.md"
     source = f"{REPO_URL}/tree/main/scripts/{slug}"
 
-    image_md = f"({{{{ '/{full_rel}' | relative_url }}}})"
-    if "](MAP)" in body:
-        body = body.replace("](MAP)", "]" + image_md)
-    else:
+    def image_md(rel):
+        return f"({{{{ '/{rel}' | relative_url }}}})"
+
+    if "](MAP)" not in body:
         first, _, rest = body.partition("\n\n")
-        body = f"{first}\n\n![{title}]{image_md}\n\n{rest}".rstrip() + "\n"
+        body = f"{first}\n\n![{title}](MAP)\n\n{rest}".rstrip() + "\n"
+    for k, rel in enumerate(full_rels):
+        body = body.replace(f"](MAP{k + 1 if k else ''})", "]" + image_md(rel))
+    if re.search(r"\]\(MAP\d*\)", body):
+        die("entry.md references a (MAPn) image that is not listed in `extra`")
 
     entry = (
         "---\n"
@@ -264,29 +280,34 @@ def cmd_submit(args: argparse.Namespace) -> None:
         git("switch", "-C", branch, "upstream/main", "--quiet")
         out = FORK
 
-    img = Image.open(image_path)
-    if img.mode not in ("RGB", "RGBA"):
-        img = img.convert("RGBA")
-    for rel in (thumb_rel, full_rel, entry_rel):
+    written = [entry_rel, thumb_rel, *full_rels]
+    for rel in written:
         (out / rel).parent.mkdir(parents=True, exist_ok=True)
-    square_thumbnail(img, focus, zoom).save(out / thumb_rel, optimize=True)
-    if full_ext == ".gif":
-        shutil.copyfile(image_path, out / full_rel)
-    else:
-        full = img.copy()
-        full.thumbnail((FULL_MAX, FULL_MAX), Image.LANCZOS)
-        full.save(out / full_rel, optimize=True)
+    thumb = Image.open(thumb_src)
+    thumb = thumb.convert("RGBA") if thumb.mode not in ("RGB", "RGBA") else thumb
+    square_thumbnail(thumb, focus, zoom).save(out / thumb_rel, optimize=True)
+    for path, rel in zip(image_paths, full_rels):
+        if rel.endswith(".gif"):
+            shutil.copyfile(path, out / rel)
+        else:
+            full = Image.open(path)
+            full = full.convert("RGBA") if full.mode not in ("RGB", "RGBA") else full
+            full.thumbnail((FULL_MAX, FULL_MAX), Image.LANCZOS)
+            full.save(out / rel, optimize=True)
+        size_mb = (out / rel).stat().st_size / 1e6
+        if size_mb > 10:
+            print(f"warning: {rel} is {size_mb:.1f} MB; consider a lighter file")
     (out / entry_rel).write_text(entry, encoding="utf-8", newline="\n")
 
     if args.dry_run:
         print(f"preview written to {out}")
-        for rel in (entry_rel, thumb_rel, full_rel):
+        for rel in written:
             print(f"  {rel}")
         return
 
-    git("add", entry_rel, thumb_rel, full_rel)
+    git("add", *written)
     git("commit", "-m", f"Day {day} - {CREATOR}: {title}", "--quiet")
-    print(f"committed on {FORK.name}@{branch}: {entry_rel}, {thumb_rel}, {full_rel}")
+    print(f"committed on {FORK.name}@{branch}: {', '.join(written)}")
 
     # The entry's Source link must open: make sure the day folder is on GitHub.
     git("fetch", "origin", "--quiet", cwd=ROOT, check=False)

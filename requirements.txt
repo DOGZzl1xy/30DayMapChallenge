@@ -5,16 +5,26 @@ pyproj>=3.8
 pandas>=3.0
 numpy>=2.5
 rasterio>=1.5
+scipy
 
 # Plotting
 matplotlib>=3.11
 mapclassify
 contextily
+cartopy>=0.26
 pillow>=12
 
 # Data access
 requests
 osmnx
+xarray
+zarr>=3
+fsspec
+aiohttp
 
 # Interactive / web maps
 folium
+
+# Animation
+imageio
+imageio-ffmpeg

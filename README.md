@@ -54,7 +54,7 @@ python tools/mapday.py submit 13           # commit them to the MUSA fork on bra
 | 10 | Prompting only | |
 | 11 | Senses: Sound | |
 | 12 | Power | |
-| 13 | Interactions | |
+| 13 | Interactions | [Where would a message in a bottle end up?](scripts/day13_drifters/) |
 | 14 | Borgesian map | |
 | 15 | Inside out | |
 | 16 | Collaborative map | |

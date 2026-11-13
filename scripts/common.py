@@ -61,6 +61,7 @@ def save_map(fig, slug: str, dpi: int = 300, **kwargs) -> Path:
     """Save the final map to ``outputs/<slug>.png`` and return the path."""
     OUTPUTS.mkdir(exist_ok=True)
     out = OUTPUTS / f"{slug}.png"
-    fig.savefig(out, dpi=dpi, bbox_inches="tight", **kwargs)
+    kwargs.setdefault("bbox_inches", "tight")
+    fig.savefig(out, dpi=dpi, **kwargs)
     print(f"saved {out.relative_to(ROOT)}")
     return out
