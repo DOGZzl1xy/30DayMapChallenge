@@ -24,4 +24,4 @@ extra: outputs/day13_drifters.gif
 - Lumpkin, R. & Centurioni, L. (2019). [NOAA Global Drifter Program quality-controlled 6-hour interpolated data from ocean surface drifting buoys](https://doi.org/10.25921/7ntx-z961) (May 2025 release, via [NOAA Open Data on AWS](https://noaa-oar-hourly-gdp-pds.s3.amazonaws.com/index.html)).
 - Land: [Natural Earth](https://www.naturalearthdata.com/).
 
-**Tools:** Python (xarray/zarr, numpy, scipy, cartopy, matplotlib), built with help from Claude Code.
+**Tools:** Python (xarray/zarr, numpy, scipy, cartopy, matplotlib).
